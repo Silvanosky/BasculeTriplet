@@ -39,7 +39,9 @@ class Triplet():
             i += 1
         return r
 
-
+"""
+Load an array position from xml MicMac structure
+"""
 def xml_loadPos(e):
     pos = [0] * 3
     i = 0
@@ -48,6 +50,9 @@ def xml_loadPos(e):
         i += 1
     return pos
 
+"""
+Load a rotation matrix from xml MicMac structure
+"""
 def xml_loadRot(e):
     rot = [0] * 9
     j = 0
@@ -59,7 +64,9 @@ def xml_loadRot(e):
         j += 1
     return rot
 
-
+"""
+Load the MicMac View Orientation XML folder.
+"""
 def loadImages(path):
     images = []
     with os.scandir(path + '/') as entries:
@@ -77,6 +84,12 @@ def loadImages(path):
                 images.append(Image(name, pos, rot))
     return images
 
+"""
+Load the MicMac Triplet XML folder.
+
+First load the triplet list file.
+Then load all the triplet files to get local orientations
+"""
 def loadTripletList(path):
     triplets_list = []
     with os.scandir(path + '/') as entries:
@@ -101,6 +114,9 @@ def loadTripletList(path):
                     triplets_list.append(Triplet(names, pos, rot))
     return triplets_list
 
+"""
+Check if the images in the two block are unique
+"""
 def checkUnique(images1, images2):
     names = set()
     for i in images1:
