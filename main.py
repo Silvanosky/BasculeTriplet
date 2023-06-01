@@ -43,26 +43,30 @@ class Triplet():
 Load an array position from xml MicMac structure
 """
 def xml_loadPos(e):
-    pos = [0] * 3
+    pos = [0.] * 3
     i = 0
     for e in e.find("Centre").text.split(" "):
         pos[i] = float(e)
         i += 1
-    return pos
+    return np.array(pos)
 
 """
 Load a rotation matrix from xml MicMac structure
 """
 def xml_loadRot(e):
-    rot = [0] * 9
-    j = 0
+    #rot = [0.] * 9
+    rot = []
+    #j = 0
     for l in ["L1", "L2", "L3"]:
-        i = 0
+        #i = 0
+        line = []
         for c in e.find(l).text.split(" "):
-            rot[j * 3 + i] = float(c)
-            i += 1
-        j += 1
-    return rot
+            line.append(float(c))
+            #rot[j * 3 + i] = float(c)
+            #i += 1
+        rot.append(line)
+        #j += 1
+    return np.array(rot)
 
 """
 Load the MicMac View Orientation XML folder.
@@ -73,8 +77,8 @@ def loadImages(path):
         for entry in entries:
             if entry.name.startswith("Orientation-"):
                 root = ET.parse(path + '/' + entry.name).getroot()
-                if "ExportAPERO" == root.tag: #Handle when everything inside
-                    root = root.find("OrientationConique")
+                #if "ExportAPERO" == root.tag: #Handle when everything inside
+                #    root = root.find("OrientationConique")
 
                 c = root.find('Externe')
                 pos = xml_loadPos(c)
@@ -127,6 +131,7 @@ def checkUnique(images1, images2):
     return True
 
 
+#Load the two block folders
 images1 = loadImages(ORI1_NAME)
 images2 = loadImages(ORI2_NAME)
 
@@ -144,6 +149,8 @@ for i in images2:
 triplets_list_all = loadTripletList(TRIP_NAME)
 triplets_list = []
 
+# Check for each triplet if one side is in one block and the two other in the
+# other block
 for t in triplets_list_all:
     in1 = 0
     in2 = 0
@@ -170,10 +177,19 @@ for t in triplets_list_all:
 
     triplets_list.append(t)
 
+for i in images1:
+    print(i)
+
+for i in images2:
+    print(i)
+
 for t in triplets_list:
     print(t)
 
 print(len(triplets_list))
+
+
+
 
 
 

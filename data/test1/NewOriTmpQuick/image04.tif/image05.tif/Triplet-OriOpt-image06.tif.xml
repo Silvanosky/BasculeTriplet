@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<Xml_Ori3ImInit>
+     <Ori2On1>
+          <Ori>
+               <L1>0.194185051465213615 0.723037995963260682 -0.662954162956146176</L1>
+               <L2>-0.980913082079361676 0.136172719219428917 -0.138803875831888524</L2>
+               <L3>-0.0100842051258431334 0.677254049034643035 0.735680135570589755</L3>
+               <TrueRot>true</TrueRot>
+          </Ori>
+          <Centre>-0.731113035171890635 0.562329585769548945 0.386340739205682626</Centre>
+     </Ori2On1>
+     <Ori3On1>
+          <Ori>
+               <L1>0.918846211952431546 -0.375234804591487392 0.122149417533836541</L1>
+               <L2>-0.0948998692493414481 -0.510573525494980585 -0.85458100252701874</L2>
+               <L3>0.383034794238232557 0.773636553225618195 -0.504748283717795565</L3>
+               <TrueRot>true</TrueRot>
+          </Ori>
+          <Centre>-0.48028130027934085 -0.295015569234944042 0.0601024203425276349</Centre>
+     </Ori3On1>
+     <NbTriplet>0</NbTriplet>
+     <ResiduTriplet>0</ResiduTriplet>
+     <BSurH>0</BSurH>
+     <PMed>0 0 0</PMed>
+     <Elips>
+          <CDG>0 0 0</CDG>
+          <Sxx>0</Sxx>
+          <Syy>0</Syy>
+          <Szz>0</Szz>
+          <Sxy>0</Sxy>
+          <Sxz>0</Sxz>
+          <Syz>0</Syz>
+          <Pds>0</Pds>
+          <Norm>false</Norm>
+     </Elips>
+     <IsGenerated>true</IsGenerated>
+     <GeneratedCategory>0</GeneratedCategory>
+</Xml_Ori3ImInit>
