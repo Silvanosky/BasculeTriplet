@@ -19,8 +19,6 @@ class Image():
         self.name = name
         self.pos = pos
         self.rot = rot
-    def __repr__(self):
-        return "Image()"
     def __str__(self):
         return "(" + self.name + ")" + str(self.pos) + "|" + str(self.rot)
 
@@ -29,11 +27,14 @@ class Triplet():
         self.names = names
         self.pos = pos
         self.rot = rot
+
     def __str__(self):
         r = ""
         for i in [0, 1, 2]:
             r += self.names[i]
+            r += "\n"
             r += str(self.pos[i])
+            r += "\n"
             r += str(self.rot[i])
             r += "\n"
             i += 1
@@ -42,7 +43,7 @@ class Triplet():
 """
 Load an array position from xml MicMac structure
 """
-def xml_loadPos(e):
+def xml_load_pos(e):
     pos = [0.] * 3
     i = 0
     for e in e.find("Centre").text.split(" "):
@@ -53,7 +54,7 @@ def xml_loadPos(e):
 """
 Load a rotation matrix from xml MicMac structure
 """
-def xml_loadRot(e):
+def xml_load_rot(e):
     #rot = [0.] * 9
     rot = []
     #j = 0
@@ -71,21 +72,21 @@ def xml_loadRot(e):
 """
 Load the MicMac View Orientation XML folder.
 """
-def loadImages(path):
-    images = []
+def load_images(path, offset_rot = np.identity(3)):
+    images = {}
     with os.scandir(path + '/') as entries:
         for entry in entries:
             if entry.name.startswith("Orientation-"):
                 root = ET.parse(path + '/' + entry.name).getroot()
-                #if "ExportAPERO" == root.tag: #Handle when everything inside
-                #    root = root.find("OrientationConique")
+                if "ExportAPERO" == root.tag: #Handle when everything inside
+                    root = root.find("OrientationConique")
 
                 c = root.find('Externe')
-                pos = xml_loadPos(c)
-                rot = xml_loadRot(c.find("ParamRotation").find('CodageMatr'))
+                pos = xml_load_pos(c)
+                rot = xml_load_rot(c.find("ParamRotation").find('CodageMatr'))
                 name = parse.parse("Orientation-{}.xml", entry.name)[0]
 
-                images.append(Image(name, pos, rot))
+                images[name] = Image(name, pos, offset_rot @ rot)
     return images
 
 """
@@ -94,7 +95,7 @@ Load the MicMac Triplet XML folder.
 First load the triplet list file.
 Then load all the triplet files to get local orientations
 """
-def loadTripletList(path):
+def load_triplet_list(path):
     triplets_list = []
     with os.scandir(path + '/') as entries:
         for entry in entries:
@@ -105,15 +106,16 @@ def loadTripletList(path):
                     names = [c.find("Name1").text, c.find("Name2").text,
                              c.find("Name3").text]
                     pos = []
-                    pos.append([0] * 3)
+                    pos.append(np.array([0.,0.,0.]))
                     rot = []
-                    rot.append([0] * 9)
+                    rot.append(np.identity(3))
                     r = ET.parse(path + "/" + names[0] + "/"\
                                  + names[1] + "/Triplet-OriOpt-" + names[2] + ".xml").getroot()
-                    pos.append(xml_loadPos(r.find("Ori2On1")))
-                    rot.append(xml_loadRot(r.find("Ori2On1").find("Ori")))
-                    pos.append(xml_loadPos(r.find("Ori3On1")))
-                    rot.append(xml_loadRot(r.find("Ori3On1").find("Ori")))
+                    pos.append(xml_load_pos(r.find("Ori2On1")))
+                    rot.append(xml_load_rot(r.find("Ori2On1").find("Ori")))
+
+                    pos.append(xml_load_pos(r.find("Ori3On1")))
+                    rot.append(xml_load_rot(r.find("Ori3On1").find("Ori")))
 
                     triplets_list.append(Triplet(names, pos, rot))
     return triplets_list
@@ -121,74 +123,143 @@ def loadTripletList(path):
 """
 Check if the images in the two block are unique
 """
-def checkUnique(images1, images2):
-    names = set()
-    for i in images1:
-        names.add(i.name)
+def check_unique(images1, images2):
     for i in images2:
-        if i.name in names:
+        if i in images1:
             return False
     return True
 
+def mean_rotation(rots):
 
-#Load the two block folders
-images1 = loadImages(ORI1_NAME)
-images2 = loadImages(ORI2_NAME)
+    allrot = np.identity(3)
+    for r in rots:
+        allrot = allrot + r
 
-if not checkUnique(images1, images2):
-    print("Same image in both block")
-    exit(1)
+    allrot = allrot * (1.0 / float(len(rots)))
 
-simages1 = set()
-for i in images1:
-    simages1.add(i.name)
-simages2 = set()
-for i in images2:
-    simages2.add(i.name)
-
-triplets_list_all = loadTripletList(TRIP_NAME)
-triplets_list = []
-
-# Check for each triplet if one side is in one block and the two other in the
-# other block
-for t in triplets_list_all:
-    in1 = 0
-    in2 = 0
-    mask = [0]*3
-    for i in [0, 1 , 2]:
-        if t.names[i] in simages1:
-            in1 += 1
-            mask[i] = 1
-        if t.names[i] in simages2:
-            in2 += 1
-            mask[i] = 2
-
-    if (not in1) or (not in2) or (in1 + in2 != 3):
-        continue
-
-    direct = in1 == 2
-    selector = 1 if direct else 2
-    m = [0] * 3;
-    for i in [0, 1, 2]:
-        if mask[i] != selector:
-            m[2] = i
-    m[1] = (m[2] + 2) % 3;
-    m[0] = (m[2] + 1) % 3;
-
-    triplets_list.append(t)
-
-for i in images1:
-    print(i)
-
-for i in images2:
-    print(i)
-
-for t in triplets_list:
-    print(t)
-
-print(len(triplets_list))
+    u, s, vh = np.linalg.svd(allrot)
+    ns = np.identity(3)
+    for i in range(3):
+        if s[i] > 0:
+            ns[i,i] = 1.
+        else:
+            ns[i,i] = -1.
+    return u @ ns @ vh
 
 
+def compute_rotation(images, triplets):
+    rot = []
+    for t in triplets:
+        #Rotate triplet on B1
+        names = [t.names[t.m[0]], t.names[t.m[1]], t.names[t.m[2]]]
+
+        rot1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
+        rot2 = images[names[1]].rot @ t.rot[t.m[1]].transpose()
+        finalrot = mean_rotation([rot1, rot2])
+        print("final", finalrot)
+        print("--")
+        print(R.from_matrix(images[names[0]].rot).as_euler('XYZ', degrees=True))
+        print(R.from_matrix(finalrot @ t.rot[t.m[0]]).as_euler('XYZ', degrees=True))
+        print("---")
+
+        rot_3 = finalrot @ t.rot[t.m[2]]
+        ###############
+
+        rot3 = rot_3 @ images[names[2]].rot.transpose()
+
+        print("Bascule", rot3)
+        rot.append(rot3.transpose())
+        print('-----------------------------')
+    return mean_rotation(rot)
+
+def compute_tr_u(images, triplets):
+    return 0,0
+
+def compute_bascule(images, images1, images2, triplets):
+    rot = compute_rotation(images, triplets)
+    tr,u = compute_tr_u(images, triplets)
+
+    return rot,tr,u
+
+
+def main():
+    Bascule = np.array([[0.9848077, -0.1736482,  0.0000000],
+        [-0.0868241, -0.4924039, -0.8660254],
+        [0.1503837,  0.8528686, -0.5000000]])
+    #Load the two block folders
+    images1 = load_images(ORI1_NAME)
+    print("B2")
+
+    images2 = load_images(ORI2_NAME, Bascule)
+    #images2 = load_images(ORI2_NAME)
+
+    simages1 = set()
+    for n,i in images1.items():
+        simages1.add(i.name)
+    simages2 = set()
+    for n,i in images2.items():
+        simages2.add(i.name)
+
+    if not check_unique(simages1, simages2):
+        print("Same image in both block")
+        exit(1)
+
+    triplets_list_all = load_triplet_list(TRIP_NAME)
+    triplets_list = []
+
+    # Check for each triplet if one side is in one block and the two other in the
+    # other block
+    for t in triplets_list_all:
+        in1 = 0
+        in2 = 0
+        mask = [0]*3
+        for i in [0, 1, 2]:
+            if t.names[i] in simages1:
+                in1 += 1
+                mask[i] = 1
+            if t.names[i] in simages2:
+                in2 += 1
+                mask[i] = 2
+
+        if (not in1) or (not in2) or (in1 + in2 != 3):
+            continue
+
+        direct = in1 == 2
+        selector = 2 if direct else 1
+        print("Seclector is ", selector)
+        m = [0] * 3;
+        for i in [0, 1, 2]:
+            if mask[i] == selector:
+                m[2] = i
+
+        m[1] = (m[2] + 1) % 3;
+        m[0] = (m[2] + 2) % 3;
+        t.m = m
+        print("M", m)
+
+        triplets_list.append(t)
+
+    images = {}
+    print("Block1")
+    for n,i in images1.items():
+        print(i)
+        images[n] = i
+
+    print("Block2")
+    for n,i in images2.items():
+        print(i)
+        images[n] = i
+
+    #print("Selected Triplets")
+    #for t in triplets_list:
+    #    print(t)
+
+    print("Number triplet:", len(triplets_list))
+
+    rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
+    print(rot - Bascule)
+
+main()
 
 
 
