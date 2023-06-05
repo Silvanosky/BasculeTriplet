@@ -1,5 +1,6 @@
 #!/bin/python
 
+from re import L
 import xml.etree.ElementTree as ET
 import sys,os
 import parse
@@ -134,7 +135,6 @@ def mean_rotation(rots):
     allrot = np.identity(3)
     for r in rots:
         allrot = allrot + r
-
     allrot = allrot * (1.0 / float(len(rots)))
 
     u, s, vh = np.linalg.svd(allrot)
@@ -153,6 +153,7 @@ def compute_rotation(images, triplets):
         #Rotate triplet on B1
         names = [t.names[t.m[0]], t.names[t.m[1]], t.names[t.m[2]]]
 
+        # Orient triplet from V0 and V1
         rot1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
         rot2 = images[names[1]].rot @ t.rot[t.m[1]].transpose()
         finalrot = mean_rotation([rot1, rot2])
@@ -162,13 +163,26 @@ def compute_rotation(images, triplets):
         print(R.from_matrix(finalrot @ t.rot[t.m[0]]).as_euler('XYZ', degrees=True))
         print("---")
 
-        rot_3 = finalrot @ t.rot[t.m[2]]
+        # Get difference from V3 using rotation V1 and V2
+        rotfinal3   = finalrot @ t.rot[t.m[2]] @ images[names[2]].rot.transpose()
         ###############
 
-        rot3 = rot_3 @ images[names[2]].rot.transpose()
+        print("---")
 
-        print("Bascule", rot3)
-        rot.append(rot3.transpose())
+        # Orient triplet from V3
+        rotb = images[names[2]].rot @ t.rot[t.m[2]].transpose()
+        # Get difference from V0 using rotation V3
+        rotfinal1  = images[names[0]].rot @ (rotb @ t.rot[t.m[0]]).transpose()
+        rotfinal2  = images[names[1]].rot @ (rotb @ t.rot[t.m[1]]).transpose()
+
+        print(R.from_matrix(rotfinal3).as_euler('XYZ', degrees=True))
+        print(R.from_matrix(rotfinal1).as_euler('XYZ', degrees=True))
+        print(R.from_matrix(rotfinal2).as_euler('XYZ', degrees=True))
+
+
+        print("Bascule", rotfinal3)
+        rot.append(rotfinal1.transpose())
+        rot.append(rotfinal3.transpose())
         print('-----------------------------')
     return mean_rotation(rot)
 
@@ -177,6 +191,7 @@ def compute_tr_u(images, triplets):
 
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
+    print("Bascule", rot)
     tr,u = compute_tr_u(images, triplets)
 
     return rot,tr,u
@@ -257,7 +272,7 @@ def main():
     print("Number triplet:", len(triplets_list))
 
     rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
-    print(rot - Bascule)
+    print(R.from_matrix(rot @ Bascule.transpose()).as_euler('XYZ', degrees=True))
 
 main()
 
