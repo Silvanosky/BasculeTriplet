@@ -45,10 +45,10 @@ class Triplet():
 Load an array position from xml MicMac structure
 """
 def xml_load_pos(e):
-    pos = [0.] * 3
+    pos = [np.longdouble(0.)] * 3
     i = 0
     for e in e.find("Centre").text.split(" "):
-        pos[i] = float(e)
+        pos[i] = np.longdouble(e)
         i += 1
     return np.array(pos)
 
@@ -63,7 +63,8 @@ def xml_load_rot(e):
         #i = 0
         line = []
         for c in e.find(l).text.split(" "):
-            line.append(float(c))
+            vc = np.longdouble(c)
+            line.append(vc)
             #rot[j * 3 + i] = float(c)
             #i += 1
         rot.append(line)
@@ -107,9 +108,9 @@ def load_triplet_list(path):
                     names = [c.find("Name1").text, c.find("Name2").text,
                              c.find("Name3").text]
                     pos = []
-                    pos.append(np.array([0.,0.,0.]))
+                    pos.append(np.array([0.,0.,0.]).astype(np.longdouble))
                     rot = []
-                    rot.append(np.identity(3))
+                    rot.append(np.identity(3).astype(np.longdouble))
                     r = ET.parse(path + "/" + names[0] + "/"\
                                  + names[1] + "/Triplet-OriOpt-" + names[2] + ".xml").getroot()
                     pos.append(xml_load_pos(r.find("Ori2On1")))
@@ -132,19 +133,20 @@ def check_unique(images1, images2):
 
 def mean_rotation(rots):
 
-    allrot = np.identity(3)
+    allrot = np.identity(3).astype(np.longdouble)
     for r in rots:
         allrot = allrot + r
-    allrot = allrot * (1.0 / float(len(rots)))
+    allrot = allrot * (np.longdouble(1.0) / np.longdouble(len(rots)))
 
-    u, s, vh = np.linalg.svd(allrot)
-    ns = np.identity(3)
-    for i in range(3):
-        if s[i] > 0:
-            ns[i,i] = 1.
-        else:
-            ns[i,i] = -1.
-    return u @ ns @ vh
+    #u, s, vh = np.linalg.svd(allrot.astype(np.double))
+    #ns = np.identity(3)
+    #for i in range(3):
+    #    if s[i] > 0:
+    #        ns[i,i] = 1.
+    #    else:
+    #        ns[i,i] = -1.
+    #return u @ ns @ vh
+    return allrot
 
 
 def compute_rotation(images, triplets):
@@ -200,7 +202,8 @@ def compute_bascule(images, images1, images2, triplets):
 def main():
     Bascule = np.array([[0.9848077, -0.1736482,  0.0000000],
         [-0.0868241, -0.4924039, -0.8660254],
-        [0.1503837,  0.8528686, -0.5000000]])
+        [0.1503837,  0.8528686, -0.5000000]]).astype(np.longdouble)
+
     #Load the two block folders
     images1 = load_images(ORI1_NAME)
     print("B2")
