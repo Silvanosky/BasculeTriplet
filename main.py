@@ -5,6 +5,7 @@ import xml.etree.ElementTree as ET
 import sys,os
 import parse
 from scipy.spatial.transform import Rotation as R
+import scipy
 import numpy as np
 
 if len(sys.argv) < 4:
@@ -63,7 +64,7 @@ def xml_load_rot(e):
         #i = 0
         line = []
         for c in e.find(l).text.split(" "):
-            vc = np.longdouble(c)
+            vc = float(c)
             line.append(vc)
             #rot[j * 3 + i] = float(c)
             #i += 1
@@ -74,7 +75,8 @@ def xml_load_rot(e):
 """
 Load the MicMac View Orientation XML folder.
 """
-def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0]):
+def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0],
+                offset_lamda = 1.):
     images = {}
     with os.scandir(path + '/') as entries:
         for entry in entries:
@@ -88,7 +90,10 @@ def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0]):
                 rot = xml_load_rot(c.find("ParamRotation").find('CodageMatr'))
                 name = parse.parse("Orientation-{}.xml", entry.name)[0]
 
-                images[name] = Image(name, pos + offset_tr, offset_rot @ rot)
+                print(pos)
+                print(pos * offset_lamda + offset_tr)
+
+                images[name] = Image(name, (offset_lamda * pos) + offset_tr, offset_rot @ rot)
     return images
 
 """
@@ -110,7 +115,7 @@ def load_triplet_list(path):
                     pos = []
                     pos.append(np.array([0.,0.,0.]))
                     rot = []
-                    rot.append(np.identity(3).astype(np.longdouble))
+                    rot.append(np.identity(3))
                     r = ET.parse(path + "/" + names[0] + "/"\
                                  + names[1] + "/Triplet-OriOpt-" + names[2] + ".xml").getroot()
                     pos.append(xml_load_pos(r.find("Ori2On1")))
@@ -133,20 +138,20 @@ def check_unique(images1, images2):
 
 def mean_rotation(rots):
 
-    allrot = np.identity(3).astype(np.longdouble)
+    allrot = np.identity(3)
     for r in rots:
         allrot = allrot + r
-    allrot = allrot * (np.longdouble(1.0) / np.longdouble(len(rots)))
+    allrot = allrot * (1.0 / float(len(rots)))
 
-    #u, s, vh = np.linalg.svd(allrot.astype(np.double))
-    #ns = np.identity(3)
-    #for i in range(3):
-    #    if s[i] > 0:
-    #        ns[i,i] = 1.
-    #    else:
-    #        ns[i,i] = -1.
-    #return u @ ns @ vh
-    return allrot
+    u, s, vh = np.linalg.svd(allrot.astype(np.double))
+    ns = np.identity(3)
+    for i in range(3):
+        if s[i] > 0:
+            ns[i,i] = 1.
+        else:
+            ns[i,i] = -1.
+    return u @ ns @ vh
+    #return allrot
 
 
 def compute_rotation(images, triplets):
@@ -188,16 +193,114 @@ def compute_rotation(images, triplets):
         print('-----------------------------')
     return mean_rotation(rot)
 
+def compute_triplet_tr_u(images, triplet):
+    t = triplet
+    a = np.array([
+        [t.pos[t.m[0]][0],1.,0.,0.],
+        [t.pos[t.m[0]][1],0.,1.,0.],
+        [t.pos[t.m[0]][2],0.,0.,1.],
+        [t.pos[t.m[1]][0],1.,0.,0.],
+        [t.pos[t.m[1]][1],0.,1.,0.],
+        [t.pos[t.m[1]][2],0.,0.,1.],
+    ])
+    b = np.array([
+        images[t.names[t.m[0]]].pos[0],
+        images[t.names[t.m[0]]].pos[1],
+        images[t.names[t.m[0]]].pos[2],
+        images[t.names[t.m[1]]].pos[0],
+        images[t.names[t.m[1]]].pos[1],
+        images[t.names[t.m[1]]].pos[2],
+    ])
+    x, res, rank, s = np.linalg.lstsq(a, b, rcond=None)
+    print("res", res)
+    print("rank", rank)
+    print("s", s)
+
+    #x, res, rank, s = scipy.linalg.lstsq(a, b)
+    #x = scipy.sparse.linalg.spsolve(a, b)
+    #x = np.linalg.solve(a, b)
+    tr = [x[1],x[2],x[3]]
+    l = x[0]
+
+    print("image1 error:", images[t.names[t.m[0]]].pos -
+          ((l*t.pos[t.m[0]]) + tr))
+
+    return tr,l
+
+def compute_tr_u2(images, triplets):
+    if len(triplets) != 2:
+        #Need 2 triplet to work ?
+        return 0,0
+
+    for t in triplets:
+        for i in range(3):
+            n = t.rot[t.m[0]] @ t.pos[i]
+            print(n)
+            t.pos[i] = n
+
+    t1 = triplets[0]
+    t2 = triplets[1]
+    t1_tr, t1_l = compute_triplet_tr_u(images, t1)
+    t2_tr, t2_l = compute_triplet_tr_u(images, t2)
+
+    print("image1 error:", images[t1.names[t1.m[0]]].pos -
+          ((t1_l*t1.pos[t1.m[0]]) + t1_tr))
+
+    print("image2 error:", images[t2.names[t2.m[0]]].pos -
+          ((t2_l*t2.pos[t2.m[0]]) + t2_tr))
+
+    a = np.array([
+        [images[t1.names[t1.m[2]]].pos[0],1.,0.,0.],
+        [images[t1.names[t1.m[2]]].pos[1],0.,1.,0.],
+        [images[t1.names[t1.m[2]]].pos[2],0.,0.,1.],
+        [images[t2.names[t2.m[2]]].pos[0],1.,0.,0.],
+        [images[t2.names[t2.m[2]]].pos[1],0.,1.,0.],
+        [images[t2.names[t2.m[2]]].pos[2],0.,0.,1.],
+    ])
+    v3 = (t1_l*t1.pos[t1.m[2]]) + t1_tr
+    v6 = (t2_l*t2.pos[t2.m[2]]) + t2_tr
+    b = np.array([
+        v3[0],
+        v3[1],
+        v3[2],
+        v6[0],
+        v6[1],
+        v6[2]
+    ])
+    x, res, rank, s = np.linalg.lstsq(a, b, rcond=None)
+    print("res", res)
+    print("rank", rank)
+    print("s", s)
+
+    b_tr = [x[1], x[2], x[3]]
+    b_l = x[0]
+
+    print("final image error:", v3 -
+          ((b_l*images[t1.names[t1.m[2]]].pos) + b_tr))
+
+
+    print("final image error:", v6 -
+          ((b_l*images[t2.names[t2.m[2]]].pos) + b_tr))
+
+    #return [x[9], x[10], x[11]], x[8]
+    return b_tr, b_l
+
 def compute_tr_u(images, triplets):
     if len(triplets) != 2:
         #Need 2 triplet to work ?
         return 0,0
 
+    #First rotate triplet from block1
+    for t in triplets:
+        for i in range(3):
+            n = t.rot[t.m[0]] @ t.pos[i]
+            t.pos[i] = n
+
     t1 = triplets[0]
     t2 = triplets[1]
     # t_a_B1[3] = a[3] * lambda + t[3]
     a = np.array([
-        [float(t1.pos[t1.m[0]][0]),1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
+        [t1.pos[t1.m[0]][0],1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
         [t1.pos[t1.m[0]][1],0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
         [t1.pos[t1.m[0]][2],0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],
         [t1.pos[t1.m[1]][0],1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
@@ -238,8 +341,27 @@ def compute_tr_u(images, triplets):
         0.,
     ])
     x, res, rank, s = np.linalg.lstsq(a, b, rcond=None)
+    print("res", res)
+    print("rank", rank)
+    print("s", s)
 
-    return [x[9], x[10], x[11]],x[8]
+    #x, res, rank, s = scipy.linalg.lstsq(a, b)
+    #x = scipy.sparse.linalg.spsolve(a, b)
+    #x = np.linalg.solve(a, b)
+    t1_tr = [x[1],x[2],x[3]]
+    t1_lambda = x[0]
+    t2_tr = [x[5],x[6],x[7]]
+    t2_lambda = x[4]
+
+    print("image1 error:", images[t1.names[t1.m[0]]].pos -
+          ((t1_lambda*t1.pos[t1.m[0]]) + t1_tr))
+
+    print("image2 error:", images[t2.names[t2.m[0]]].pos -
+          ((t2_lambda*t2.pos[t2.m[0]]) + t2_tr))
+
+
+
+    return [x[9], x[10], x[11]], x[8]
 
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
@@ -252,14 +374,16 @@ def compute_bascule(images, images1, images2, triplets):
 def main():
     BasculeRot = np.array([[0.9848077, -0.1736482,  0.0000000],
         [-0.0868241, -0.4924039, -0.8660254],
-        [0.1503837,  0.8528686, -0.5000000]]).astype(np.longdouble)
-    BasculeTr = np.array([130, 42, 12])
+        [0.1503837,  0.8528686, -0.5000000]])
+    BasculeRot = np.identity(3)
+    BasculeTr = np.array([100, 0, 0])
+    BasculeLambda = 1.
 
     #Load the two block folders
     images1 = load_images(ORI1_NAME)
     print("B2")
 
-    images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr)
+    images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr, BasculeLambda)
     #images2 = load_images(ORI2_NAME)
 
     simages1 = set()
@@ -295,7 +419,7 @@ def main():
 
         direct = in1 == 2
         selector = 2 if direct else 1
-        print("Seclector is ", selector)
+        print("Selector is ", selector)
         m = [0] * 3;
         for i in [0, 1, 2]:
             if mask[i] == selector:
@@ -303,6 +427,7 @@ def main():
 
         m[1] = (m[2] + 1) % 3;
         m[0] = (m[2] + 2) % 3;
+        #m[a, b, c] - mapping for triplet
         t.m = m
         print("M", m)
 
@@ -326,11 +451,14 @@ def main():
     print("Number triplet:", len(triplets_list))
 
     rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
-    print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
-    print('DiffTr', tr - BasculeTr)
-    print('Diffu', u)
+    #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
+    print('DiffTr', tr + BasculeTr)
+    print('Tr', tr)
+    print('Lambda', u)
+    print('ILambda', 1./BasculeLambda)
 
-main()
+if __name__ == '__main__':
+    sys.exit(main())
 
 
 
