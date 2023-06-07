@@ -464,8 +464,8 @@ def main():
     images1 = load_images(ORI1_NAME)
     print("B2")
 
-    images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr, BasculeLambda)
-    #images2 = load_images(ORI2_NAME)
+    #images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr, BasculeLambda)
+    images2 = load_images(ORI2_NAME)
 
     simages1 = set()
     for n,i in images1.items():
@@ -533,11 +533,11 @@ def main():
 
     rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
 
-    print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
-    print('DiffTr', tr - BasculeTr)
+    #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
+    #print('DiffTr', tr - BasculeTr)
     print('Tr', tr)
     print('Lambda', u)
-    print('ILambda', 1./BasculeLambda)
+    #print('ILambda', 1./BasculeLambda)
 
 if __name__ == '__main__':
     sys.exit(main())
