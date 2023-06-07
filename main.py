@@ -8,9 +8,21 @@ from scipy.spatial.transform import Rotation as R
 import scipy
 import numpy as np
 
+
 if len(sys.argv) < 4:
     print(sys.argv[0] + " TRIPLETPATH ORI1 OR2")
     exit(0)
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 TRIP_NAME = sys.argv[1]
 ORI1_NAME = sys.argv[2]
@@ -301,15 +313,14 @@ def main():
     BasculeRot = np.array([[0.9848077, -0.1736482,  0.0000000],
         [-0.0868241, -0.4924039, -0.8660254],
         [0.1503837,  0.8528686, -0.5000000]])
-    BasculeRot = R.from_euler('xyz', [120, 10, 100], degrees=True).as_matrix()
+    BasculeRot = R.from_euler('xyz', [120, 0, 0], degrees=True).as_matrix()
     # To disable rotation bascule
     #BasculeRot = np.identity(3)
-    BasculeTr = np.array([100, 0, 0])
     BasculeLambda = 10.
+    BasculeTr = np.array([100, 0, 0])
 
     #Load the two block folders
     images1 = load_images(ORI1_NAME)
-    print("B2")
 
     #images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr, BasculeLambda)
     images2 = load_images(ORI2_NAME)
@@ -353,8 +364,8 @@ def main():
             if mask[i] == selector:
                 m[2] = i
 
-        m[1] = (m[2] + 1) % 3;
-        m[0] = (m[2] + 2) % 3;
+        m[0] = (m[2] + 1) % 3;
+        m[1] = (m[2] + 2) % 3;
         #m[a, b, c] - mapping for triplet
         t.m = m
         print("M", m)
@@ -382,10 +393,13 @@ def main():
 
     #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
     #print('DiffTr', tr - BasculeTr)
-    print('Bascule', rot)
-    print('Tr', tr)
-    print('Lambda', u)
-    #print('ILambda', 1./BasculeLambda)
+    print(bcolors.OKCYAN, 'Bascule', rot, bcolors.ENDC)
+    print(bcolors.OKGREEN,'Tr', tr, bcolors.ENDC)
+    print(bcolors.OKBLUE,'Lambda', u, bcolors.ENDC)
+
+    print('EulerRot', R.from_matrix(rot).as_euler('XYZ', degrees=True))
+    scaledtr = np.array(tr) * 1./u
+    print('ScaledTr', scaledtr)
 
 if __name__ == '__main__':
     sys.exit(main())
