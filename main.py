@@ -201,9 +201,14 @@ def compute_rotation(images, triplets):
         r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
         r_b1_b2_1 = images[names[0]].rot @ r1_b2.transpose()
 
-        print("Bascule",r_b2_b1)
-        rot.append(r_b2_b1)
-        rot.append(r_b1_b2_1.transpose())
+        #If V3 is in block 1 we invert rotation
+        if t.b[t.m[2]] == 2:
+            rot.append(r_b2_b1)
+            rot.append(r_b1_b2_1.transpose())
+        else:
+            rot.append(r_b2_b1.transpose())
+            rot.append(r_b1_b2_1)
+
         print('-----------------------------')
 
     return mean_rotation(rot).transpose()
@@ -301,8 +306,10 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
     #First rotate triplet from block1
     for t in triplets:
-        #r = images[t.names[t.m[0]]].rot
-        r = images[t.names[t.m[0]]].rot @ t.rot[t.m[0]].transpose()
+        view0 = t.m[0]
+        if t.b[view0] == 2:
+            view0 = t.m[2]
+        r = images[t.names[view0]].rot @ t.rot[view0].transpose()
         for i in range(3):
             t.rot[i] = r @ t.rot[i]
             t.pos[i] = r @ t.pos[i]
