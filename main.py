@@ -206,7 +206,7 @@ def compute_rotation(images, triplets):
         rot.append(r_b1_b2_1.transpose())
         print('-----------------------------')
 
-    return mean_rotation(rot)
+    return mean_rotation(rot).transpose()
 
 def compute_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) != 2:
@@ -214,7 +214,7 @@ def compute_tr_u(rot, images1, images2, images, triplets):
         return 0,0
 
     for n,i in images2.items():
-        images[n].pos = rot.transpose() @ i.pos
+        images[n].pos = rot @ i.pos
 
     #First rotate triplet from block1
     for t in triplets:
@@ -400,7 +400,7 @@ def main():
         for n,i in images2.items():
             print('---------------------')
             print('Image: ', n, ':')
-            print('DiffRot', R.from_matrix((rot.transpose() @ i.rot) @
+            print('DiffRot', R.from_matrix((rot @ i.rot) @
                 images2_ori[n].rot.transpose()).as_euler('XYZ', degrees=True))
             print('OriTr', (images2_ori[n].pos) - (u*i.pos+tr))
 
