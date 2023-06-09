@@ -209,7 +209,7 @@ def compute_rotation(images, triplets):
     return mean_rotation(rot).transpose()
 
 def compute_tr_u(rot, images1, images2, images, triplets):
-    if len(triplets) != 2:
+    if len(triplets) < 2:
         #Need 2 triplet to work ?
         return 0,0
 
@@ -291,11 +291,130 @@ def compute_tr_u(rot, images1, images2, images, triplets):
 
     return [x[9], x[10], x[11]], x[8]
 
+def computeall_tr_u(rot, images1, images2, images, triplets):
+    if len(triplets) < 2:
+        #Need 2 triplet to work ?
+        return 0,0
+
+    for n,i in images2.items():
+        images[n].pos = rot @ i.pos
+
+    #First rotate triplet from block1
+    for t in triplets:
+        #r = images[t.names[t.m[0]]].rot
+        r = images[t.names[t.m[0]]].rot @ t.rot[t.m[0]].transpose()
+        for i in range(3):
+            t.rot[i] = r @ t.rot[i]
+            t.pos[i] = r @ t.pos[i]
+
+    t_normal = []
+    t_inverted = []
+    for t in triplets:
+        if t.b[t.m[2]] == 2:
+            t_normal.append(t)
+        else:
+            t_inverted.append(t)
+
+    print("Normal: ", len(t_normal), ' Inverted: ', len(t_inverted))
+
+    n_x = 4 * len(triplets) + 4
+    n_y = 9 * len(triplets)
+    a = np.zeros((n_y, n_x), dtype=float)
+    b = np.zeros(n_y, dtype=float)
+
+    np.set_printoptions(suppress=True)
+    n_t = 0
+    for t in t_normal:
+        B = np.array([images[t.names[t.m[0]]].pos[0],
+        images[t.names[t.m[0]]].pos[1],
+        images[t.names[t.m[0]]].pos[2],
+        images[t.names[t.m[1]]].pos[0],
+        images[t.names[t.m[1]]].pos[1],
+        images[t.names[t.m[1]]].pos[2],
+        0.,
+        0.,
+        0.])
+        r = n_t * 9
+        b[r:r+B.shape[0]] = B
+
+        A = np.array([
+            [t.pos[t.m[0]][0],1.,0.,0.],
+            [t.pos[t.m[0]][1],0.,1.,0.],
+            [t.pos[t.m[0]][2],0.,0.,1.],
+            [t.pos[t.m[1]][0],1.,0.,0.],
+            [t.pos[t.m[1]][1],0.,1.,0.],
+            [t.pos[t.m[1]][2],0.,0.,1.],
+            [-t.pos[t.m[2]][0],-1.,0.,0.],
+            [-t.pos[t.m[2]][1],0.,-1.,0.],
+            [-t.pos[t.m[2]][2],0.,0.,-1.]
+        ])
+        r,c = (n_t * 9, n_t * 4)
+        a[r:r+A.shape[0], c:c+A.shape[1]] = A
+
+        A1 = np.array([
+            [images[t.names[t.m[2]]].pos[0],1.,0.,0.],
+            [images[t.names[t.m[2]]].pos[1],0.,1.,0.],
+            [images[t.names[t.m[2]]].pos[2],0.,0.,1.],
+        ])
+        r,c = (n_t * 9 + 6, a.shape[1] - 4)
+        a[r:r+A1.shape[0], c:c+A1.shape[1]] = A1
+
+        n_t += 1
+
+    for t in t_inverted:
+        B = np.array([images[t.names[t.m[2]]].pos[0],
+        images[t.names[t.m[2]]].pos[1],
+        images[t.names[t.m[2]]].pos[2],
+        0.,
+        0.,
+        0.,
+        0.,
+        0.,
+        0.])
+        r = n_t * 9
+        b[r:r+B.shape[0]] = B
+
+        A = np.array([
+            [t.pos[t.m[2]][0],1.,0.,0.],
+            [t.pos[t.m[2]][1],0.,1.,0.],
+            [t.pos[t.m[2]][2],0.,0.,1.],
+            [-t.pos[t.m[0]][0],-1.,0.,0.],
+            [-t.pos[t.m[0]][1],0.,-1.,0.],
+            [-t.pos[t.m[0]][2],0.,0.,-1.],
+            [-t.pos[t.m[1]][0],-1.,0.,0.],
+            [-t.pos[t.m[1]][1],0.,-1.,0.],
+            [-t.pos[t.m[1]][2],0.,0.,-1.]
+        ])
+        r,c = (n_t * 9, n_t * 4)
+        a[r:r+A.shape[0], c:c+A.shape[1]] = A
+
+        A1 = np.array([
+            [images[t.names[t.m[0]]].pos[0],1.,0.,0.],
+            [images[t.names[t.m[0]]].pos[1],0.,1.,0.],
+            [images[t.names[t.m[0]]].pos[2],0.,0.,1.],
+            [images[t.names[t.m[1]]].pos[0],1.,0.,0.],
+            [images[t.names[t.m[1]]].pos[1],0.,1.,0.],
+            [images[t.names[t.m[1]]].pos[2],0.,0.,1.],
+        ])
+        r,c = (n_t * 9 + 3, a.shape[1] - 4)
+        a[r:r+A1.shape[0], c:c+A1.shape[1]] = A1
+
+        n_t += 1
+
+    x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float), rcond=None)
+    print("res", res)
+    print("rank", rank)
+    print("s", s)
+
+    return [x[9], x[10], x[11]], x[8]
+
+
+
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
     print("Bascule", rot)
 
-    tr,u = compute_tr_u(rot, images1, images2, images, triplets)
+    tr,u = computeall_tr_u(rot, images1, images2, images, triplets)
 
     return rot,tr,u
 
@@ -382,7 +501,8 @@ def main():
 
     print("Number triplet:", len(triplets_list))
 
-    rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
+    #rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
+    rot,tr,u = compute_bascule(images, images1, images2, triplets_list)
 
     #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
     #print('DiffTr', tr - BasculeTr)
