@@ -1,5 +1,15 @@
 # BasculeTriplet
 
+## Description
+
+This project propose a method to compute the "Bascule" or seesaw between two
+oriented block linked by spanning triplet.
+
+Examples imitate a classical [MicMac](https://github.com/micmacIGN/micmac) chantier with two block and the triplet directory.
+
+It will read all the triplets and select the spanning ones (each side of the
+triplet is in the block, and at least one in each block).
+
 ## Virtual env
 ### Create virtual env
 ```
