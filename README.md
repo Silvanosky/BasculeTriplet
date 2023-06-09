@@ -56,4 +56,11 @@ DiffRot [-0.00000037  0.00000147 -0.00000009]
 OriTr [ 0.00000033 -0.00000018  0.00000089]
 ```
 
+### Data/test1
+![image](https://github.com/Silvanosky/BasculeTriplet/assets/14824553/8db476fa-76c1-4c7f-b4bf-78acf6175b19)
+### Data/test2
+![image](https://github.com/Silvanosky/BasculeTriplet/assets/14824553/ecafc43c-b071-43ca-b4d9-221674e80296)
+
+
+
 
