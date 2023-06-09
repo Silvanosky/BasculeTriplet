@@ -10,7 +10,7 @@ import numpy as np
 
 
 if len(sys.argv) < 4:
-    print(sys.argv[0] + " TRIPLETPATH ORI1 OR2")
+    print(sys.argv[0] + " TRIPLETPATH ORI1 OR2 [test|random]")
     exit(0)
 
 class bcolors:
@@ -29,9 +29,14 @@ ORI1_NAME = sys.argv[2]
 ORI2_NAME = sys.argv[3]
 
 testBascule = False
+testRandom = False
 
 if len(sys.argv) == 5:
-    testBascule = True
+    if sys.argv[4] == 'test':
+        testBascule = True
+    if sys.argv[4] == 'random':
+        testRandom = True
+
 
 def gs(X):
     Q, R = np.linalg.qr(X)
@@ -509,7 +514,12 @@ def main():
     print("Number triplet:", len(triplets_list))
 
     #rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
-    rot,tr,u = compute_bascule(images, images1, images2, triplets_list)
+    if testRandom:
+        rt = np.random.choice(triplets_list, size=2, replace=False)
+    else:
+        rt = triplets_list
+
+    rot,tr,u = compute_bascule(images, images1, images2, rt)
 
     #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
     #print('DiffTr', tr - BasculeTr)
