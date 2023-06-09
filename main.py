@@ -28,6 +28,11 @@ TRIP_NAME = sys.argv[1]
 ORI1_NAME = sys.argv[2]
 ORI2_NAME = sys.argv[3]
 
+testBascule = False
+
+if len(sys.argv) == 5:
+    testBascule = True
+
 def gs(X):
     Q, R = np.linalg.qr(X)
     return Q
@@ -203,14 +208,18 @@ def compute_rotation(images, triplets):
 
     return mean_rotation(rot)
 
-def compute_tr_u(images, triplets):
+def compute_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) != 2:
         #Need 2 triplet to work ?
         return 0,0
 
+    for n,i in images2.items():
+        images[n].pos = rot.transpose() @ i.pos
+
     #First rotate triplet from block1
     for t in triplets:
-        r = images[t.names[t.m[0]]].rot
+        #r = images[t.names[t.m[0]]].rot
+        r = images[t.names[t.m[0]]].rot @ t.rot[t.m[0]].transpose()
         for i in range(3):
             t.rot[i] = r @ t.rot[i]
             t.pos[i] = r @ t.pos[i]
@@ -286,10 +295,7 @@ def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
     print("Bascule", rot)
 
-    for n,i in images2.items():
-        images[n].pos = rot @ i.pos
-
-    tr,u = compute_tr_u(images, triplets)
+    tr,u = compute_tr_u(rot, images1, images2, images, triplets)
 
     return rot,tr,u
 
@@ -298,18 +304,21 @@ def main():
     BasculeRot = np.array([[0.9848077, -0.1736482,  0.0000000],
         [-0.0868241, -0.4924039, -0.8660254],
         [0.1503837,  0.8528686, -0.5000000]])
-    BasculeRot = R.from_euler('XYZ', [0, 0, 0], degrees=True).as_matrix()
+    BasculeRot = R.from_euler('XYZ', [0, 10, 0], degrees=True).as_matrix()
     # To disable rotation bascule
     #BasculeRot = np.identity(3)
-    BasculeLambda = 1.
-    BasculeTr = np.array([0, 0, 0])
+    BasculeLambda = 10.
+    BasculeTr = np.array([10, 0, 0])
 
     #Load the two block folders
-    images1 = load_images(ORI1_NAME, BasculeRot, BasculeTr, BasculeLambda)
-    #images1 = load_images(ORI1_NAME)
+    #images1 = load_images(ORI1_NAME, BasculeRot, BasculeTr, BasculeLambda)
+    images1 = load_images(ORI1_NAME)
 
-    images2 = load_images(ORI2_NAME)
-    #images2 = load_images(ORI2_NAME)
+    images2_ori = load_images(ORI2_NAME)
+    if testBascule:
+        images2 = load_images(ORI2_NAME, BasculeRot, BasculeTr, BasculeLambda)
+    else:
+        images2 = images2_ori
 
     simages1 = set()
     for n,i in images1.items():
@@ -354,19 +363,17 @@ def main():
         m[1] = (m[2] + 2) % 3;
         #m[a, b, c] - mapping for triplet
         t.m = m
-        print("M", m)
+        t.b = mask
 
         triplets_list.append(t)
 
     images = {}
     print("Block1")
     for n,i in images1.items():
-        print(i)
         images[n] = i
 
     print("Block2")
     for n,i in images2.items():
-        print(i)
         images[n] = i
 
     #print("Selected Triplets")
@@ -381,14 +388,21 @@ def main():
     #print('DiffTr', tr - BasculeTr)
 
     np.set_printoptions(suppress=True)
-    print(bcolors.OKCYAN, 'Bascule', rot, bcolors.ENDC)
-    print(bcolors.OKGREEN,'Tr', np.array(tr), bcolors.ENDC)
-    print(bcolors.OKBLUE,'Lambda', u, bcolors.ENDC)
-
     print('EulerRot', R.from_matrix(rot).as_euler('XYZ', degrees=True))
+    print(bcolors.OKCYAN, 'Bascule', rot, bcolors.ENDC)
+    print(bcolors.OKBLUE,'Lambda', u, bcolors.ENDC)
+    print(bcolors.OKGREEN,'Tr', np.array(tr), bcolors.ENDC)
+
     #scaledtr = np.array(tr) * 1./u
     #print('ScaledTr', scaledtr)
 
+    if testBascule:
+        for n,i in images2.items():
+            print('---------------------')
+            print('Image: ', n, ':')
+            print('DiffRot', R.from_matrix((rot.transpose() @ i.rot) @
+                images2_ori[n].rot.transpose()).as_euler('XYZ', degrees=True))
+            print('OriTr', (images2_ori[n].pos) - (u*i.pos+tr))
 
 if __name__ == '__main__':
     sys.exit(main())
