@@ -1,5 +1,6 @@
 #!/bin/python
 
+from os.path import isdir
 from re import L
 import xml.etree.ElementTree as ET
 import sys,os
@@ -9,8 +10,8 @@ import scipy
 import numpy as np
 
 
-if len(sys.argv) < 4:
-    print(sys.argv[0] + " TRIPLETPATH ORI1 OR2 [test|random]")
+if len(sys.argv) < 5:
+    print(sys.argv[0] + " TRIPLETPATH ORI1 ORI2 OUT [test|random]")
     exit(0)
 
 class bcolors:
@@ -27,14 +28,15 @@ class bcolors:
 TRIP_NAME = sys.argv[1]
 ORI1_NAME = sys.argv[2]
 ORI2_NAME = sys.argv[3]
+ORIOUT_NAME = sys.argv[4]
 
 testBascule = False
 testRandom = False
 
-if len(sys.argv) == 5:
-    if sys.argv[4] == 'test':
+if len(sys.argv) == 6:
+    if sys.argv[5] == 'test':
         testBascule = True
-    if sys.argv[4] == 'random':
+    if sys.argv[5] == 'random':
         testRandom = True
 
 
@@ -43,17 +45,18 @@ def gs(X):
     return Q
 
 class Image():
-    def __init__(self, name, pos, rot):
+    def __init__(self, xml, name, pos, rot):
         self.name = name
         self.pos = pos
         #self.rot = gs(rot)
         self.rot = rot
+        self.xml = xml
 
     def __str__(self):
         return "(" + self.name + ")" + str(self.pos) + "|" + str(self.rot)
 
     def inv(self):
-        return Image(self.name, -1 * (self.rot@self.pos), self.rot.transpose())
+        return Image(self.xml, self.name, -1 * (self.rot@self.pos), self.rot.transpose())
 
 class Triplet():
     def __init__(self, names, pos, rot):
@@ -84,6 +87,10 @@ def xml_load_pos(e):
         i += 1
     return np.array(pos)
 
+def xml_write_pos(e, pos):
+    e.find("Centre").text = str(pos[0]) + " " + str(pos[1]) + " " + str(pos[2])
+    return
+
 """
 Load a rotation matrix from xml MicMac structure
 """
@@ -103,6 +110,13 @@ def xml_load_rot(e):
         #j += 1
     return np.array(rot)
 
+def xml_write_rot(e, rot):
+    i = 0
+    for l in ["L1", "L2", "L3"]:
+        e.find(l).text = str(rot[i, 0]) + " " + str(rot[i, 1]) + " " + str(rot[i, 2])
+        i += 1
+    return np.array(rot)
+
 """
 Load the MicMac View Orientation XML folder.
 """
@@ -112,7 +126,8 @@ def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0],
     with os.scandir(path + '/') as entries:
         for entry in entries:
             if entry.name.startswith("Orientation-"):
-                root = ET.parse(path + '/' + entry.name).getroot()
+                tree = ET.parse(path + '/' + entry.name)
+                root = tree.getroot()
                 if "ExportAPERO" == root.tag: #Handle when everything inside
                     root = root.find("OrientationConique")
 
@@ -121,10 +136,26 @@ def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0],
                 rot = xml_load_rot(c.find("ParamRotation").find('CodageMatr'))
                 name = parse.parse("Orientation-{}.xml", entry.name)[0]
 
-                images[name] = Image(name, offset_rot @ (offset_lamda *
+                images[name] = Image(tree, name, offset_rot @ (offset_lamda *
                     (pos+offset_tr)),
                                      offset_rot @ rot)
     return images
+
+def save_images(path, images):
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    for i in images:
+        file = path + '/' + "Orientation-{}.xml".format(i.name)
+        root = i.xml.getroot()
+        if "ExportAPERO" == root.tag: #Handle when everything inside
+            root = root.find("OrientationConique")
+
+        c = root.find('Externe')
+        xml_write_pos(c, i.pos)
+        xml_write_rot(c.find("ParamRotation").find('CodageMatr'), i.rot)
+        i.xml.write(file)
+
+    return
 
 """
 Load the MicMac Triplet XML folder.
@@ -424,7 +455,7 @@ def main():
 
     rng = np.random.default_rng()
     if testRandom:
-        rt = rng.choice(triplets_list, size=2, replace=False)
+        rt = rng.choice(triplets_list, size=len(triplets_list)//2, replace=False)
     else:
         rt = triplets_list
 
@@ -447,11 +478,13 @@ def main():
                 images2_ori[n].rot.transpose()).as_euler('XYZ', degrees=True))
             print('OriTr', (images2_ori[n].pos) - (u*i.pos+tr))
 
+    for n,i in images2.items():
+        images[n].rot = (rot @ i.rot)
+        images[n].pos = u*(rot @ i.pos)+tr
+
+    save_images(ORIOUT_NAME, images.values())
+
 if __name__ == '__main__':
     sys.exit(main())
-
-
-
-
 
 
