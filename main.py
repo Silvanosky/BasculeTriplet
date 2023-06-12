@@ -408,11 +408,15 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
     x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
                                       rcond=None)
+
+    np.set_printoptions(suppress=True)
     print("res", res)
     print("rank", rank)
     print("s", s)
+    print("x", x)
 
-    return [x[9], x[10], x[11]], x[8]
+    e = len(x)
+    return [x[e-3], x[e-2], x[e-1]], x[e-4]
 
 
 
@@ -513,7 +517,7 @@ def main():
     else:
         rt = triplets_list
 
-    rng.shuffle(rt)
+    #rng.shuffle(rt)
 
     rot,tr,u = compute_bascule(images, images1, images2, rt)
 

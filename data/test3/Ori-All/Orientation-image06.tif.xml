@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<OrientationConique>
+    <OrIntImaM2C>
+        <I00>0 0</I00>
+        <V10>1 0</V10>
+        <V01>0 1</V01>
+    </OrIntImaM2C>
+    <TypeProj>eProjStenope</TypeProj>
+    <ZoneUtileInPixel>true</ZoneUtileInPixel>
+    <FileInterne>AutoCal_Foc-35000_Cam-CamLightLOEMI.xml</FileInterne>
+    <Externe>
+        <AltiSol>-1.00000000000000002e+30</AltiSol>
+        <Time>-1.00000000000000002e+30</Time>
+        <KnownConv>eConvApero_DistM2C</KnownConv>
+        <Centre>19.0 9.0 26.0</Centre>
+        <IncCentre>1 1 1</IncCentre>
+        <ParamRotation>
+            <CodageMatr>
+                <L1>-0.7518377 0.6535625 0.0871557</L1>
+                <L2>-0.6206583 -0.7461244 0.2410013</L2>
+                <L3>0.2225385 0.1270999 0.9666035</L3>
+            </CodageMatr>
+        </ParamRotation>
+    </Externe>
+    <ConvOri>
+        <KnownConv>eConvApero_DistM2C</KnownConv>
+    </ConvOri>
+</OrientationConique>

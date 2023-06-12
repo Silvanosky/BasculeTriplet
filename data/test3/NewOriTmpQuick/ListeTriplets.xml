@@ -1,0 +1,19 @@
+<?xml version="1.0" ?>
+<Xml_TopoTriplet>
+     <Triplets>
+          <Name1>image01.tif</Name1>
+          <Name2>image02.tif</Name2>
+          <Name3>image03.tif</Name3>
+     </Triplets>
+     <Triplets>
+          <Name1>image04.tif</Name1>
+          <Name2>image05.tif</Name2>
+          <Name3>image06.tif</Name3>
+     </Triplets>
+     <Triplets>
+          <Name1>image07.tif</Name1>
+          <Name2>image08.tif</Name2>
+          <Name3>image09.tif</Name3>
+     </Triplets>
+
+</Xml_TopoTriplet>
