@@ -31,11 +31,13 @@ image in the second block.
 
 ```console
 ./main.py ./data/test1/NewOriTmpQuick ./data/test1/Ori-1 ./data/test1/Ori-2
+Ori-3
 ```
 
 You can apply a custom bascule to the second block to test :
 ```console
-./main.py ./data/test1/NewOriTmpQuick ./data/test1/Ori-1 ./data/test1/Ori-2 test
+./main.py ./data/test1/NewOriTmpQuick ./data/test1/Ori-1 ./data/test1/Ori-2
+Ori-3 test
 ```
 
 You should get this output:
