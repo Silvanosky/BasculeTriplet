@@ -166,6 +166,10 @@ def check_unique(images1, images2):
             return False
     return True
 
+"""
+Takes an array of rotation and average all of them.
+Then it compute the closest orthogonal rotation of this average.
+"""
 def mean_rotation(rots):
 
     allrot = np.array([[0,0,0],[0,0,0],[0,0,0]])
@@ -183,6 +187,9 @@ def mean_rotation(rots):
     return u @ ns @ vh
     #return allrot
 
+"""
+Takes a list of images and compute the rotation going from block2 to block1
+"""
 def compute_rotation(images, triplets):
     rot = []
     for t in triplets:
@@ -192,11 +199,6 @@ def compute_rotation(images, triplets):
         r_t1_b1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
         r3_b1 = r_t1_b1 @ t.rot[t.m[2]]
         r_b2_b1 = images[names[2]].rot@r3_b1.transpose()
-
-        #print("---")
-        #print(R.from_matrix(images[names[0]].rot).as_euler('XYZ', degrees=True))
-        #print(R.from_matrix(r_t1_b1 @ t.rot[t.m[0]]).as_euler('XYZ', degrees=True))
-        #print("---")
 
         r_t1_b2 = images[names[2]].rot @ t.rot[t.m[2]].transpose()
         r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
@@ -211,89 +213,6 @@ def compute_rotation(images, triplets):
             rot.append(r_b1_b2_1)
 
     return mean_rotation(rot).transpose()
-
-def compute_tr_u(rot, images1, images2, images, triplets):
-    if len(triplets) != 2:
-        #Need 2 triplet to work ?
-        return 0,0
-
-    for n,i in images2.items():
-        images[n].pos = rot @ i.pos
-
-    #First rotate triplet from block1
-    for t in triplets:
-        #r = images[t.names[t.m[0]]].rot
-        r = images[t.names[t.m[0]]].rot @ t.rot[t.m[0]].transpose()
-        for i in range(3):
-            t.rot[i] = r @ t.rot[i]
-            t.pos[i] = r @ t.pos[i]
-
-    t1 = triplets[0]
-    t2 = triplets[1]
-    # t_a_B1[3] = a[3] * lambda + t[3]
-    a = np.array([
-        [t1.pos[t1.m[0]][0],1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [t1.pos[t1.m[0]][1],0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [t1.pos[t1.m[0]][2],0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [t1.pos[t1.m[1]][0],1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [t1.pos[t1.m[1]][1],0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [t1.pos[t1.m[1]][2],0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[0]][0],1.,0.,0.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[0]][1],0.,1.,0.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[0]][2],0.,0.,1.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[1]][0],1.,0.,0.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[1]][1],0.,1.,0.,0.,0.,0.,0.],
-        [0.,0.,0.,0.,t2.pos[t2.m[1]][2],0.,0.,1.,0.,0.,0.,0.],
-        [-t1.pos[t1.m[2]][0],-1.,0.,0.,0.,0.,0.,0.,images[t1.names[t1.m[2]]].pos[0],1.,0.,0.],
-        [-t1.pos[t1.m[2]][1],0.,-1.,0.,0.,0.,0.,0.,images[t1.names[t1.m[2]]].pos[1],0.,1.,0.],
-        [-t1.pos[t1.m[2]][2],0.,0.,-1.,0.,0.,0.,0.,images[t1.names[t1.m[2]]].pos[2],0.,0.,1.],
-        [0.,0.,0.,0.,-t2.pos[t2.m[2]][0],-1.,0.,0.,images[t2.names[t2.m[2]]].pos[0],1.,0.,0.],
-        [0.,0.,0.,0.,-t2.pos[t2.m[2]][1],0.,-1.,0.,images[t2.names[t2.m[2]]].pos[1],0.,1.,0.],
-        [0.,0.,0.,0.,-t2.pos[t2.m[2]][2],0.,0.,-1.,images[t2.names[t2.m[2]]].pos[2],0.,0.,1.],
-
-    ])
-    b = np.array([
-        images[t1.names[t1.m[0]]].pos[0],
-        images[t1.names[t1.m[0]]].pos[1],
-        images[t1.names[t1.m[0]]].pos[2],
-        images[t1.names[t1.m[1]]].pos[0],
-        images[t1.names[t1.m[1]]].pos[1],
-        images[t1.names[t1.m[1]]].pos[2],
-        images[t2.names[t2.m[0]]].pos[0],
-        images[t2.names[t2.m[0]]].pos[1],
-        images[t2.names[t2.m[0]]].pos[2],
-        images[t2.names[t2.m[1]]].pos[0],
-        images[t2.names[t2.m[1]]].pos[1],
-        images[t2.names[t2.m[1]]].pos[2],
-        0.,
-        0.,
-        0.,
-        0.,
-        0.,
-        0.,
-    ])
-    x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float), rcond=None)
-    print("res", res)
-    print("rank", rank)
-    print("s", s)
-
-    #x, res, rank, s = scipy.linalg.lstsq(a, b)
-    #x = scipy.sparse.linalg.spsolve(a, b)
-    #x = np.linalg.solve(a, b)
-    t1_tr = [x[1],x[2],x[3]]
-    t1_lambda = x[0]
-    t2_tr = [x[5],x[6],x[7]]
-    t2_lambda = x[4]
-
-    print("image1 error:", images[t1.names[t1.m[0]]].pos -
-          ((t1_lambda*t1.pos[t1.m[0]]) + t1_tr))
-
-    print("image2 error:", images[t2.names[t2.m[0]]].pos -
-          ((t2_lambda*t2.pos[t2.m[0]]) + t2_tr))
-
-
-
-    return [x[9], x[10], x[11]], x[8]
 
 def computeall_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) < 2:
@@ -418,8 +337,6 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     e = len(x)
     return [x[e-3], x[e-2], x[e-1]], x[e-4]
 
-
-
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
     print("Bascule", rot)
@@ -504,34 +421,24 @@ def main():
     for n,i in images2.items():
         images[n] = i
 
-    #print("Selected Triplets")
-    #for t in triplets_list:
-    #    print(t)
-
     print("Number triplet:", len(triplets_list))
 
-    #rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
     rng = np.random.default_rng()
     if testRandom:
         rt = rng.choice(triplets_list, size=2, replace=False)
     else:
         rt = triplets_list
 
+    #if we want to shuffle input
     #rng.shuffle(rt)
 
     rot,tr,u = compute_bascule(images, images1, images2, rt)
-
-    #print('DiffRot', R.from_matrix(rot @ BasculeRot.transpose()).as_euler('XYZ', degrees=True))
-    #print('DiffTr', tr - BasculeTr)
 
     np.set_printoptions(suppress=True)
     print('EulerRot', R.from_matrix(rot).as_euler('XYZ', degrees=True))
     print(bcolors.OKCYAN, 'Bascule', rot, bcolors.ENDC)
     print(bcolors.OKBLUE,'Lambda', u, bcolors.ENDC)
     print(bcolors.OKGREEN,'Tr', np.array(tr), bcolors.ENDC)
-
-    #scaledtr = np.array(tr) * 1./u
-    #print('ScaledTr', scaledtr)
 
     if testBascule:
         for n,i in images2.items():
