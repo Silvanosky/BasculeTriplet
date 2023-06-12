@@ -144,6 +144,7 @@ def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0],
 def save_images(path, images):
     if not os.path.isdir(path):
         os.mkdir(path)
+    ## TODO copy calibration file
     for i in images:
         file = path + '/' + "Orientation-{}.xml".format(i.name)
         root = i.xml.getroot()
@@ -174,7 +175,7 @@ def load_triplet_list(path):
                     names = [c.find("Name1").text, c.find("Name2").text,
                              c.find("Name3").text]
                     pos = []
-                    pos.append(np.array([0.,0.,0.]))
+                    pos.append(np.zeros(3))
                     rot = []
                     rot.append(np.identity(3))
                     r = ET.parse(path + "/" + names[0] + "/"\
@@ -247,7 +248,7 @@ def compute_rotation(images, triplets):
 def computeall_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) < 2:
         #Need 2 triplet to work ?
-        return 0,0
+        return 0,0,False
 
     for n,i in images2.items():
         images[n].pos = rot @ i.pos
@@ -365,15 +366,15 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     print("x", x)
 
     e = len(x)
-    return [x[e-3], x[e-2], x[e-1]], x[e-4]
+    return [x[e-3], x[e-2], x[e-1]], x[e-4], True
 
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
     print("Bascule", rot)
 
-    tr,u = computeall_tr_u(rot, images1, images2, images, triplets)
+    tr,u,err = computeall_tr_u(rot, images1, images2, images, triplets)
 
-    return rot,tr,u
+    return rot,tr,u,err
 
 
 def main():
@@ -462,7 +463,7 @@ def main():
     #if we want to shuffle input
     #rng.shuffle(rt)
 
-    rot,tr,u = compute_bascule(images, images1, images2, rt)
+    rot,tr,u,err = compute_bascule(images, images1, images2, rt)
 
     np.set_printoptions(suppress=True)
     print('EulerRot', R.from_matrix(rot).as_euler('XYZ', degrees=True))
@@ -478,9 +479,11 @@ def main():
                 images2_ori[n].rot.transpose()).as_euler('XYZ', degrees=True))
             print('OriTr', (images2_ori[n].pos) - (u*i.pos+tr))
 
-    for n,i in images2.items():
-        images[n].rot = (rot @ i.rot)
-        images[n].pos = u*(rot @ i.pos)+tr
+    if not err and u > 0:
+        #Apply Bascule
+        for n,i in images2.items():
+            images[n].rot = (rot @ i.rot)
+            images[n].pos = u*(rot @ i.pos)+tr
 
     save_images(ORIOUT_NAME, images.values())
 
