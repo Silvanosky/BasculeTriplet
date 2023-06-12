@@ -121,10 +121,6 @@ def load_images(path, offset_rot = np.identity(3), offset_tr = [0,0,0],
                 rot = xml_load_rot(c.find("ParamRotation").find('CodageMatr'))
                 name = parse.parse("Orientation-{}.xml", entry.name)[0]
 
-
-                print(pos)
-                print(pos * offset_lamda + offset_tr)
-
                 images[name] = Image(name, offset_rot @ (offset_lamda *
                     (pos+offset_tr)),
                                      offset_rot @ rot)
@@ -197,10 +193,10 @@ def compute_rotation(images, triplets):
         r3_b1 = r_t1_b1 @ t.rot[t.m[2]]
         r_b2_b1 = images[names[2]].rot@r3_b1.transpose()
 
-        print("---")
-        print(R.from_matrix(images[names[0]].rot).as_euler('XYZ', degrees=True))
-        print(R.from_matrix(r_t1_b1 @ t.rot[t.m[0]]).as_euler('XYZ', degrees=True))
-        print("---")
+        #print("---")
+        #print(R.from_matrix(images[names[0]].rot).as_euler('XYZ', degrees=True))
+        #print(R.from_matrix(r_t1_b1 @ t.rot[t.m[0]]).as_euler('XYZ', degrees=True))
+        #print("---")
 
         r_t1_b2 = images[names[2]].rot @ t.rot[t.m[2]].transpose()
         r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
@@ -214,12 +210,10 @@ def compute_rotation(images, triplets):
             rot.append(r_b2_b1.transpose())
             rot.append(r_b1_b2_1)
 
-        print('-----------------------------')
-
     return mean_rotation(rot).transpose()
 
 def compute_tr_u(rot, images1, images2, images, triplets):
-    if len(triplets) < 2:
+    if len(triplets) != 2:
         #Need 2 triplet to work ?
         return 0,0
 
@@ -334,7 +328,6 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     a = np.zeros((n_y, n_x), dtype=float)
     b = np.zeros(n_y, dtype=float)
 
-    np.set_printoptions(suppress=True)
     n_t = 0
     for t in t_normal:
         B = np.array([images[t.names[t.m[0]]].pos[0],
@@ -413,7 +406,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         n_t += 1
 
-    x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float), rcond=None)
+    x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
+                                      rcond=None)
     print("res", res)
     print("rank", rank)
     print("s", s)
@@ -484,7 +478,6 @@ def main():
 
         direct = in1 == 2
         selector = 2 if direct else 1
-        print("Selector is ", selector)
         m = [0] * 3;
         for i in [0, 1, 2]:
             if mask[i] == selector:
@@ -514,10 +507,13 @@ def main():
     print("Number triplet:", len(triplets_list))
 
     #rot,tr,u = compute_bascule(images, images1, images2, [triplets_list[0], triplets_list[1]])
+    rng = np.random.default_rng()
     if testRandom:
-        rt = np.random.choice(triplets_list, size=2, replace=False)
+        rt = rng.choice(triplets_list, size=2, replace=False)
     else:
         rt = triplets_list
+
+    rng.shuffle(rt)
 
     rot,tr,u = compute_bascule(images, images1, images2, rt)
 
