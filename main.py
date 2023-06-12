@@ -172,7 +172,7 @@ Then it compute the closest orthogonal rotation of this average.
 """
 def mean_rotation(rots):
 
-    allrot = np.array([[0,0,0],[0,0,0],[0,0,0]])
+    allrot = np.zeros((3,3))
     for r in rots:
         allrot = allrot + r
     allrot = allrot * (1.0 / np.longdouble(len(rots)))
@@ -185,7 +185,6 @@ def mean_rotation(rots):
         else:
             ns[i,i] = -1.
     return u @ ns @ vh
-    #return allrot
 
 """
 Takes a list of images and compute the rotation going from block2 to block1
