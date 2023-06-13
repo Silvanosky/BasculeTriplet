@@ -318,11 +318,11 @@ return bestfit
                 best_inlier_idxs = np.concatenate( (maybe_idxs, also_idxs) )
         iterations+=1
     if bestfit is None:
-        return None, None, False
+        return [], {}, False
     if return_all:
         return bestfit, {'inliers':best_inlier_idxs}, True
     else:
-        return bestfit, None, True
+        return bestfit, [], True
 
 def random_partition(n, n_data):
     """return n random rows of data (and also the other len(data)-n rows)"""
@@ -482,6 +482,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         n_t += 1
 
     good = False
+    r_tr = None
+    r_u = None
 
     if len(triplets) > 4:
 
@@ -507,10 +509,11 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         print("fit", ransac_fit)
         print("data", ransac_data)
-        x1 = ransac_fit
-        e = len(x1)
-        r_tr = np.array([x1[e-3], x1[e-2], x1[e-1]])
-        r_u = x1[e-4]
+        if good:
+            x = ransac_fit
+            e = len(x)
+            r_tr = np.array([x[e-3], x[e-2], x[e-1]])
+            r_u = x[e-4]
 
     if not good:
         x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
