@@ -8,6 +8,10 @@ import parse
 from scipy.spatial.transform import Rotation as R
 import scipy
 import numpy as np
+import math
+from matplotlib import pyplot as plt
+
+from sklearn import linear_model
 
 
 if len(sys.argv) < 5:
@@ -245,6 +249,127 @@ def compute_rotation(images, triplets):
 
     return mean_rotation(rot).transpose()
 
+def ransac(data,model,n,k,t,d,debug=False,return_all=False):
+    """fit model parameters to data using the RANSAC algorithm
+
+This implementation written from pseudocode found at
+http://en.wikipedia.org/w/index.php?title=RANSAC&oldid=116358182
+
+{{{
+Given:
+    data - a set of observed data points
+    model - a model that can be fitted to data points
+    n - the minimum number of data values required to fit the model
+    k - the maximum number of iterations allowed in the algorithm
+    t - a threshold value for determining when a data point fits a model
+    d - the number of close data values required to assert that a model fits well to data
+Return:
+    bestfit - model parameters which best fit the data (or nil if no good model is found)
+iterations = 0
+bestfit = nil
+besterr = something really large
+while iterations < k {
+    maybeinliers = n randomly selected values from data
+    maybemodel = model parameters fitted to maybeinliers
+    alsoinliers = empty set
+    for every point in data not in maybeinliers {
+        if point fits maybemodel with an error smaller than t
+             add point to alsoinliers
+    }
+    if the number of elements in alsoinliers is > d {
+        % this implies that we may have found a good model
+        % now test how good it is
+        bettermodel = model parameters fitted to all points in maybeinliers and alsoinliers
+        thiserr = a measure of how well model fits these points
+        if thiserr < besterr {
+            bestfit = bettermodel
+            besterr = thiserr
+        }
+    }
+    increment iterations
+}
+return bestfit
+}}}
+"""
+    iterations = 0
+    bestfit = None
+    besterr = np.inf
+    best_inlier_idxs = None
+    while iterations < k:
+        maybe_idxs, test_idxs = random_partition(n,data.shape[0])
+        maybeinliers = data[maybe_idxs,:]
+        test_points = data[test_idxs, :]
+        maybemodel = model.fit(maybeinliers)
+        test_err = model.get_error( test_points, maybemodel)
+        also_idxs = test_idxs[test_err < t] # select indices of rows with accepted points
+        alsoinliers = data[also_idxs,:]
+        if debug:
+            print('test_err.min()',test_err.min())
+            print('test_err.max()',test_err.max())
+            print('numpy.mean(test_err)',np.mean(test_err))
+        if len(alsoinliers) > d:
+            betterdata = np.concatenate( (maybeinliers, alsoinliers) )
+            bettermodel = model.fit(betterdata)
+            better_errs = model.get_error( betterdata, bettermodel)
+            thiserr = np.mean( better_errs )
+            if thiserr < besterr:
+                bestfit = bettermodel
+                besterr = thiserr
+                best_inlier_idxs = np.concatenate( (maybe_idxs, also_idxs) )
+        iterations+=1
+    if bestfit is None:
+        raise ValueError("did not meet fit acceptance criteria")
+    if return_all:
+        return bestfit, {'inliers':best_inlier_idxs}
+    else:
+        return bestfit
+
+def random_partition(n, n_data):
+    """return n random rows of data (and also the other len(data)-n rows)"""
+    number_eq = 9
+    n_data //= number_eq
+    n //= number_eq
+    all_idxs = np.arange( n_data )
+    np.random.shuffle(all_idxs)
+    idxs1 = all_idxs[:n]
+    idxs2 = all_idxs[n:]
+
+    f1 = []
+    for i in idxs1:
+        for j in range(number_eq):
+            f1.append(i*number_eq + j)
+    f2 = []
+    for i in idxs2:
+        for j in range(number_eq):
+            f2.append(i*number_eq + j)
+
+    return np.array(f1).astype(int), np.array(f2).astype(int)
+
+class LinearLeastSquaresModel:
+    """linear system solved using linear least squares
+
+    This class serves as an example that fulfills the model interface
+    needed by the ransac() function.
+
+    """
+    def __init__(self,input_columns,output_columns,debug=False):
+        self.input_columns = input_columns
+        self.output_columns = output_columns
+        self.debug = debug
+
+    def fit(self, data):
+        A = np.vstack([data[:,i] for i in self.input_columns]).T
+        B = np.vstack([data[:,i] for i in self.output_columns]).T
+        x,resids,rank,s = scipy.linalg.lstsq(A,B, lapack_driver="gelsy")
+        return x
+
+    def get_error( self, data, model):
+        A = np.vstack([data[:,i] for i in self.input_columns]).T
+        B = np.vstack([data[:,i] for i in self.output_columns]).T
+        B_fit = np.dot(A,model)
+        err_per_point = np.sum((B-B_fit)**2,axis=1) # sum squared error per row
+        return err_per_point
+
 def computeall_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) < 2:
         #Need 2 triplet to work ?
@@ -276,7 +401,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     n_x = 4 * len(triplets) + 4
     n_y = 9 * len(triplets)
     a = np.zeros((n_y, n_x), dtype=float)
-    b = np.zeros(n_y, dtype=float)
+    b = np.zeros((n_y, 1), dtype=float)
 
     n_t = 0
     for t in t_normal:
@@ -290,7 +415,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         0.,
         0.])
         r = n_t * 9
-        b[r:r+B.shape[0]] = B
+        b[r:r+B.shape[0], 0] = B
 
         A = np.array([
             [t.pos[t.m[0]][0],1.,0.,0.],
@@ -327,7 +452,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         0.,
         0.])
         r = n_t * 9
-        b[r:r+B.shape[0]] = B
+        b[r:r+B.shape[0], 0] = B
 
         A = np.array([
             [t.pos[t.m[2]][0],1.,0.,0.],
@@ -356,17 +481,49 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         n_t += 1
 
-    x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
+    if len(triplets) > 4:
+
+        n_inputs = len(triplets) * 4 + 4
+        n_outputs = 1
+        all_data = np.hstack( (a,b) )
+        input_columns = range(n_inputs) # the first columns of the array
+        output_columns = [n_inputs+i for i in range(n_outputs)] # the last columns of the array
+        debug = False
+        model = LinearLeastSquaresModel(input_columns,output_columns,debug=debug)
+
+        p = 0.99
+        s = 2
+        e = 0.5
+
+        n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
+        print("N", n)
+
+        # run RANSAC algorithm
+        ransac_fit, ransac_data = ransac(all_data, model,
+                                         28, n, 0.001, 3, # misc. parameters
+                                         debug=debug, return_all=True)
+        print("fit", ransac_fit)
+        print("data", ransac_data)
+        x1 = ransac_fit
+        e = len(x1)
+        r_tr = np.array([x1[e-3], x1[e-2], x1[e-1]])
+        r_u = x1[e-4]
+    else:
+
+        x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
                                       rcond=None)
 
-    np.set_printoptions(suppress=True)
-    print("res", res)
-    print("rank", rank)
-    print("s", s)
-    print("x", x)
+        np.set_printoptions(suppress=True)
+        #print("res", res)
+        #print("rank", rank)
+        #print("s", s)
+        #print("x", x)
 
-    e = len(x)
-    return [x[e-3], x[e-2], x[e-1]], x[e-4], True
+        e = len(x)
+        r_tr = np.array([x[e-3], x[e-2], x[e-1]])
+        r_u = x[e-4]
+
+    return r_tr, r_u, True
 
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
@@ -479,7 +636,7 @@ def main():
                 images2_ori[n].rot.transpose()).as_euler('XYZ', degrees=True))
             print('OriTr', (images2_ori[n].pos) - (u*i.pos+tr))
 
-    if not err and u > 0:
+    if not err and u > 0.:
         #Apply Bascule
         for n,i in images2.items():
             images[n].rot = (rot @ i.rot)
