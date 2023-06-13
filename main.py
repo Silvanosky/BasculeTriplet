@@ -318,11 +318,11 @@ return bestfit
                 best_inlier_idxs = np.concatenate( (maybe_idxs, also_idxs) )
         iterations+=1
     if bestfit is None:
-        raise ValueError("did not meet fit acceptance criteria")
+        return None, None, False
     if return_all:
-        return bestfit, {'inliers':best_inlier_idxs}
+        return bestfit, {'inliers':best_inlier_idxs}, True
     else:
-        return bestfit
+        return bestfit, None, True
 
 def random_partition(n, n_data):
     """return n random rows of data (and also the other len(data)-n rows)"""
@@ -481,6 +481,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         n_t += 1
 
+    good = False
+
     if len(triplets) > 4:
 
         n_inputs = len(triplets) * 4 + 4
@@ -499,17 +501,18 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         print("N", n)
 
         # run RANSAC algorithm
-        ransac_fit, ransac_data = ransac(all_data, model,
+        ransac_fit, ransac_data, good = ransac(all_data, model,
                                          28, n, 0.001, 3, # misc. parameters
                                          debug=debug, return_all=True)
+
         print("fit", ransac_fit)
         print("data", ransac_data)
         x1 = ransac_fit
         e = len(x1)
         r_tr = np.array([x1[e-3], x1[e-2], x1[e-1]])
         r_u = x1[e-4]
-    else:
 
+    if not good:
         x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
                                       rcond=None)
 
