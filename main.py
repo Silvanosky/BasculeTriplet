@@ -586,8 +586,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         n_t += 1
 
     good = False
-    r_tr = None
-    r_u = None
+    r_tr = [0,0,0]
+    r_u = -1
 
     if len(triplets) > 4:
         n_inputs = len(triplets) * 4 + 4
@@ -618,7 +618,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
             r_tr = np.array([x[e-3], x[e-2], x[e-1]])
             r_u = x[e-4]
 
-    if not good:
+    if not good or r_u < 0:
         x, res, rank, s = np.linalg.lstsq(a.astype(float), b.astype(float),
                                       rcond=None)
 
