@@ -352,7 +352,8 @@ class LinearLeastSquaresModel:
     needed by the ransac() function.
 
     """
-    def __init__(self,input_columns,output_columns,debug=False):
+    def __init__(self,bascule_idx, input_columns,output_columns,debug=False):
+        self.bascule_idx = bascule_idx
         self.input_columns = input_columns
         self.output_columns = output_columns
         self.debug = debug
@@ -364,6 +365,7 @@ class LinearLeastSquaresModel:
         return x
 
     def get_error( self, data, model):
+        print ("lines", data.shape[0])
         A = np.vstack([data[:,i] for i in self.input_columns]).T
         B = np.vstack([data[:,i] for i in self.output_columns]).T
         B_fit = np.dot(A,model)
@@ -403,6 +405,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     a = np.zeros((n_y, n_x), dtype=float)
     b = np.zeros((n_y, 1), dtype=float)
 
+    bascule_idx = []
+
     n_t = 0
     for t in t_normal:
         B = np.array([images[t.names[t.m[0]]].pos[0],
@@ -438,6 +442,10 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         ])
         r,c = (n_t * 9 + 6, a.shape[1] - 4)
         a[r:r+A1.shape[0], c:c+A1.shape[1]] = A1
+
+        bascule_idx.append(n_t * 9 + 6)
+        bascule_idx.append(n_t * 9 + 7)
+        bascule_idx.append(n_t * 9 + 8)
 
         n_t += 1
 
@@ -479,6 +487,13 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         r,c = (n_t * 9 + 3, a.shape[1] - 4)
         a[r:r+A1.shape[0], c:c+A1.shape[1]] = A1
 
+        bascule_idx.append(n_t * 9 + 3)
+        bascule_idx.append(n_t * 9 + 4)
+        bascule_idx.append(n_t * 9 + 5)
+        bascule_idx.append(n_t * 9 + 6)
+        bascule_idx.append(n_t * 9 + 7)
+        bascule_idx.append(n_t * 9 + 8)
+
         n_t += 1
 
     good = False
@@ -493,11 +508,11 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         input_columns = range(n_inputs) # the first columns of the array
         output_columns = [n_inputs+i for i in range(n_outputs)] # the last columns of the array
         debug = False
-        model = LinearLeastSquaresModel(input_columns,output_columns,debug=debug)
+        model = LinearLeastSquaresModel(bascule_idx, input_columns,output_columns,debug=debug)
 
         p = 0.99
-        s = 2
-        e = 0.5
+        s = 4
+        e = 0.6
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
