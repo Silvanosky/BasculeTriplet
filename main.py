@@ -2,6 +2,7 @@
 
 from os.path import isdir
 from re import L
+from typing import final
 import xml.etree.ElementTree as ET
 import sys,os
 import parse
@@ -222,33 +223,6 @@ def mean_rotation(rots):
             ns[i,i] = -1.
     return u @ ns @ vh
 
-"""
-Takes a list of images and compute the rotation going from block2 to block1
-"""
-def compute_rotation(images, triplets):
-    rot = []
-    for t in triplets:
-        #Rotate triplet on B1
-        names = [t.names[t.m[0]], t.names[t.m[1]], t.names[t.m[2]]]
-
-        r_t1_b1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
-        r3_b1 = r_t1_b1 @ t.rot[t.m[2]]
-        r_b2_b1 = images[names[2]].rot@r3_b1.transpose()
-
-        r_t1_b2 = images[names[2]].rot @ t.rot[t.m[2]].transpose()
-        r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
-        r_b1_b2_1 = images[names[0]].rot @ r1_b2.transpose()
-
-        #If V3 is in block 1 we invert rotation
-        if t.b[t.m[2]] == 2:
-            rot.append(r_b2_b1)
-            rot.append(r_b1_b2_1.transpose())
-        else:
-            rot.append(r_b2_b1.transpose())
-            rot.append(r_b1_b2_1)
-
-    return mean_rotation(rot).transpose()
-
 def ransac(data,model,n,k,t,d,debug=False,return_all=False):
     """fit model parameters to data using the RANSAC algorithm
 
@@ -296,7 +270,7 @@ return bestfit
     besterr = np.inf
     best_inlier_idxs = None
     while iterations < k:
-        maybe_idxs, test_idxs = random_partition(n,data.shape[0])
+        maybe_idxs, test_idxs = model.random_partition(n,data.shape[0])
         maybeinliers = data[maybe_idxs,:]
         test_points = data[test_idxs, :]
         maybemodel = model.fit(maybeinliers)
@@ -324,26 +298,61 @@ return bestfit
     else:
         return bestfit, [], True
 
-def random_partition(n, n_data):
-    """return n random rows of data (and also the other len(data)-n rows)"""
-    number_eq = 9
-    n_data //= number_eq
-    n //= number_eq
-    all_idxs = np.arange( n_data )
-    np.random.shuffle(all_idxs)
-    idxs1 = all_idxs[:n]
-    idxs2 = all_idxs[n:]
+class MeanRotationModel:
+    def __init__(self, images,debug=False):
+        self.images = images
+        self.debug = debug
 
-    f1 = []
-    for i in idxs1:
-        for j in range(number_eq):
-            f1.append(i*number_eq + j)
-    f2 = []
-    for i in idxs2:
-        for j in range(number_eq):
-            f2.append(i*number_eq + j)
+    def random_partition(self, n, n_data):
+        """return n random rows of data (and also the other len(data)-n rows)"""
+        all_idxs = np.arange( n_data )
+        np.random.shuffle(all_idxs)
+        idxs1 = all_idxs[:n]
+        idxs2 = all_idxs[n:]
+        return idxs1, idxs2
 
-    return np.array(f1).astype(int), np.array(f2).astype(int)
+    def rotation(self, t):
+        images = self.images
+        names = [t.names[t.m[0]], t.names[t.m[1]], t.names[t.m[2]]]
+        r_t1_b1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
+        r3_b1 = r_t1_b1 @ t.rot[t.m[2]]
+        r_b2_b1 = images[names[2]].rot@r3_b1.transpose()
+
+        r_t1_b2 = images[names[2]].rot @ t.rot[t.m[2]].transpose()
+        r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
+        r_b1_b2_1 = images[names[0]].rot @ r1_b2.transpose()
+
+        #If V3 is in block 1 we invert rotation
+        if t.b[t.m[2]] == 2:
+            rot1 = r_b2_b1
+            rot2 = r_b1_b2_1.transpose()
+        else:
+            rot1 = r_b2_b1.transpose()
+            rot2 = r_b1_b2_1
+        return rot1, rot2
+
+    def fit(self, ts):
+        rot = []
+        for t in ts[:, 0]:
+            rot1, rot2 = self.rotation(t)
+            rot.append(rot1)
+            rot.append(rot2)
+        return mean_rotation(rot)
+
+
+    def get_error(self, data, rotBascule):
+        ref = R.from_matrix(rotBascule).as_euler('xyz')
+        err_per_point = []
+        for t in data[:,0]:
+            rot1, rot2 = self.rotation(t)
+            mean = mean_rotation([rot1, rot2])
+            rot = R.from_matrix(mean).as_euler('xyz')
+            err = math.acos(((mean @ rotBascule.transpose()).trace()-1.)/2.)
+            err_per_point.append(err)
+            #err_per_point.append(np.linalg.norm(ref-rot))
+        return np.array(err_per_point)
+
+
 
 class LinearLeastSquaresModel:
     """linear system solved using linear least squares
@@ -358,6 +367,27 @@ class LinearLeastSquaresModel:
         self.output_columns = output_columns
         self.debug = debug
 
+    def random_partition(self, n, n_data):
+        """return n random rows of data (and also the other len(data)-n rows)"""
+        number_eq = 9
+        n_data //= number_eq
+        n //= number_eq
+        all_idxs = np.arange( n_data )
+        np.random.shuffle(all_idxs)
+        idxs1 = all_idxs[:n]
+        idxs2 = all_idxs[n:]
+
+        f1 = []
+        for i in idxs1:
+            for j in range(number_eq):
+                f1.append(i*number_eq + j)
+        f2 = []
+        for i in idxs2:
+            for j in range(number_eq):
+                f2.append(i*number_eq + j)
+
+        return np.array(f1).astype(int), np.array(f2).astype(int)
+
     def fit(self, data):
         A = np.vstack([data[:,i] for i in self.input_columns]).T
         B = np.vstack([data[:,i] for i in self.output_columns]).T
@@ -365,12 +395,71 @@ class LinearLeastSquaresModel:
         return x
 
     def get_error( self, data, model):
-        print ("lines", data.shape[0])
         A = np.vstack([data[:,i] for i in self.input_columns]).T
         B = np.vstack([data[:,i] for i in self.output_columns]).T
         B_fit = np.dot(A,model)
         err_per_point = np.sum((B-B_fit)**2,axis=1) # sum squared error per row
         return err_per_point
+
+
+
+"""
+Takes a list of images and compute the rotation going from block2 to block1
+"""
+def compute_rotation(images, triplets):
+
+    finalrot = np.identity(3)
+    good = False
+
+    if len(triplets) > 3:
+        debug = False
+        model = MeanRotationModel(images, debug=debug)
+
+        p = 0.99
+        s = 3
+        e = 0.7
+
+        n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
+        print("N", n)
+        data = np.array(triplets).reshape(len(triplets), 1)
+
+        # run RANSAC algorithm
+        ransac_fit, ransac_data, good = ransac(data, model,
+                                         4, n, 0.001, 1, # misc. parameters
+                                         debug=debug, return_all=True)
+
+        print("fit", ransac_fit)
+        print("data", ransac_data)
+        if good:
+            finalrot = ransac_fit.transpose()
+
+    if not good:
+        rot = []
+        for t in triplets:
+            #Rotate triplet on B1
+            names = [t.names[t.m[0]], t.names[t.m[1]], t.names[t.m[2]]]
+
+            r_t1_b1 = images[names[0]].rot @ t.rot[t.m[0]].transpose()
+            r3_b1 = r_t1_b1 @ t.rot[t.m[2]]
+            r_b2_b1 = images[names[2]].rot@r3_b1.transpose()
+
+            r_t1_b2 = images[names[2]].rot @ t.rot[t.m[2]].transpose()
+            r1_b2 = r_t1_b2 @ t.rot[t.m[0]]
+            r_b1_b2_1 = images[names[0]].rot @ r1_b2.transpose()
+
+            #If V3 is in block 1 we invert rotation
+            if t.b[t.m[2]] == 2:
+                rot.append(r_b2_b1)
+                rot.append(r_b1_b2_1.transpose())
+            else:
+                rot.append(r_b2_b1.transpose())
+                rot.append(r_b1_b2_1)
+
+        finalrot = mean_rotation(rot).transpose()
+
+    print(finalrot)
+
+    return finalrot
 
 def computeall_tr_u(rot, images1, images2, images, triplets):
     if len(triplets) < 2:
@@ -501,7 +590,6 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     r_u = None
 
     if len(triplets) > 4:
-
         n_inputs = len(triplets) * 4 + 4
         n_outputs = 1
         all_data = np.hstack( (a,b) )
@@ -548,7 +636,9 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
 def compute_bascule(images, images1, images2, triplets):
     rot = compute_rotation(images, triplets)
-    print("Bascule", rot)
+    np.set_printoptions(suppress=True)
+    #print("Bascule", rot)
+    #print('EulerRot', R.from_matrix(rot).as_euler('XYZ', degrees=True))
 
     tr,u,err = computeall_tr_u(rot, images1, images2, images, triplets)
 
