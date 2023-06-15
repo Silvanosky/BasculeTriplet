@@ -425,7 +425,7 @@ def compute_rotation(images, triplets):
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         4, n, 0.001, 1, # misc. parameters
+                                         min(len(triplets),10), n, 0.001, 3, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
