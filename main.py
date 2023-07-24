@@ -415,17 +415,18 @@ def compute_rotation(images, triplets):
         debug = False
         model = MeanRotationModel(images, debug=debug)
 
-        p = 0.99
+        p = 0.6
         s = 3
-        e = 0.7
+        e = 0.8
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
         data = np.array(triplets).reshape(len(triplets), 1)
+        n = 250
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         min(len(triplets),10), n, 0.0001, 3, # misc. parameters
+                                         min(len(triplets),5), n, 0.0001, 3, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
@@ -598,16 +599,17 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         debug = False
         model = LinearLeastSquaresModel(bascule_idx, input_columns,output_columns,debug=debug)
 
-        p = 0.99
-        s = 4
-        e = 0.6
+        p = 0.6
+        s = 3
+        e = 0.8
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
+        n = 250
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(all_data, model,
-                                         28, n, 0.001, 3, # misc. parameters
+                                         28, n, 0.0001, 3, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
