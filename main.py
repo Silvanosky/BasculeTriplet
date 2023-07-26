@@ -609,7 +609,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(all_data, model,
-                                         8, n, 0.0001, 3, # misc. parameters
+                                         12, n, 0.0001, 3, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
