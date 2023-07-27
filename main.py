@@ -341,12 +341,12 @@ class MeanRotationModel:
 
 
     def get_error(self, data, rotBascule):
-        ref = R.from_matrix(rotBascule).as_euler('xyz')
+        #ref = R.from_matrix(rotBascule).as_euler('xyz')
         err_per_point = []
         for t in data[:,0]:
             rot1, rot2 = self.rotation(t)
             mean = mean_rotation([rot1, rot2])
-            rot = R.from_matrix(mean).as_euler('xyz')
+            #rot = R.from_matrix(mean).as_euler('xyz')
             err = math.acos(((mean @ rotBascule.transpose()).trace()-1.)/2.)
             err_per_point.append(err)
             #err_per_point.append(np.linalg.norm(ref-rot))
@@ -415,18 +415,18 @@ def compute_rotation(images, triplets):
         debug = False
         model = MeanRotationModel(images, debug=debug)
 
-        p = 0.6
-        s = 3
-        e = 0.8
+        p = 0.9
+        s = 2
+        e = 0.9
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
+        n = 50
         data = np.array(triplets).reshape(len(triplets), 1)
-        n = 100
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         min(len(triplets),10), n, 0.001, 3, # misc. parameters
+                                         min(len(triplets),5), n, 0.01, 2, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
@@ -599,17 +599,17 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
         debug = False
         model = LinearLeastSquaresModel(bascule_idx, input_columns,output_columns,debug=debug)
 
-        p = 0.6
+        p = 0.9
         s = 3
         e = 0.8
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
-        n = 250
+        n = 100
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(all_data, model,
-                                         28, n, 0.001, 3, # misc. parameters
+                                         28, n, 0.01, 6, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
