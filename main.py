@@ -421,12 +421,12 @@ def compute_rotation(images, triplets):
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
-        n = 50
+        n = 15
         data = np.array(triplets).reshape(len(triplets), 1)
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         min(len(triplets),5), n, 0.01, 2, # misc. parameters
+                                         min(len(triplets),5), n, 0.001, 2, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
@@ -605,11 +605,11 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
-        n = 100
+        n = 20
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(all_data, model,
-                                         28, n, 0.01, 6, # misc. parameters
+                                         28, n, 0.001, 6, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
