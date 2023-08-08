@@ -592,7 +592,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     r_u = -1
 
     #if len(triplets) > 10:
-    if len(triplets) > 4 and len(triplets) < 50:
+    if len(triplets) > 4 and len(triplets) < 30:
         n_inputs = len(triplets) * 4 + 4
         n_outputs = 1
         all_data = np.hstack( (a,b) )
