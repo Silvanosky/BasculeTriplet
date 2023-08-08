@@ -391,7 +391,8 @@ class LinearLeastSquaresModel:
     def fit(self, data):
         A = np.vstack([data[:,i] for i in self.input_columns]).T
         B = np.vstack([data[:,i] for i in self.output_columns]).T
-        x,resids,rank,s = scipy.linalg.lstsq(A,B, lapack_driver="gelsy")
+        x,resids,rank,s = scipy.linalg.lstsq(A,B, cond=0.1, overwrite_a=True,
+                                             overwrite_b=True, lapack_driver="gelsd")
         return x
 
     def get_error( self, data, model):
@@ -411,7 +412,7 @@ def compute_rotation(images, triplets):
     finalrot = np.identity(3)
     good = False
 
-    if len(triplets) > 4:
+    if len(triplets) > 10:
         debug = False
         model = MeanRotationModel(images, debug=debug)
 
@@ -421,12 +422,12 @@ def compute_rotation(images, triplets):
 
         n = math.log(1.-p)/math.log(1.-math.pow(1.-e,s))
         print("N", n)
-        n = 15
+        n = 10
         data = np.array(triplets).reshape(len(triplets), 1)
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         min(len(triplets),5), n, 0.001, 2, # misc. parameters
+                                         3, n, 0.0001, 6, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
@@ -590,7 +591,8 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     r_tr = [0,0,0]
     r_u = -1
 
-    if len(triplets) > 4:
+    #if len(triplets) > 10:
+    if len(triplets) > 4 and len(triplets) < 50:
         n_inputs = len(triplets) * 4 + 4
         n_outputs = 1
         all_data = np.hstack( (a,b) )
@@ -609,7 +611,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(all_data, model,
-                                         28, n, 0.001, 6, # misc. parameters
+                                         6, n, 0.001, 3, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
