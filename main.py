@@ -429,7 +429,7 @@ def compute_rotation(images, triplets):
 
         # run RANSAC algorithm
         ransac_fit, ransac_data, good = ransac(data, model,
-                                         3, n, 0.001, 6, # misc. parameters
+                                         3, n, 0.01, 6, # misc. parameters
                                          debug=debug, return_all=True)
 
         print("fit", ransac_fit)
@@ -473,7 +473,7 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
     for n,i in images2.items():
         images[n].pos = rot @ i.pos
 
-    #triplets.sort(key=lambda x: x.residu, reverse=True)
+    triplets.sort(key=lambda x: x.residu, reverse=True)
     #triplets = triplets[:len(triplets)//2]
 
     #First rotate triplet from block1
