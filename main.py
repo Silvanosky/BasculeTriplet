@@ -64,10 +64,11 @@ class Image():
         return Image(self.xml, self.name, -1 * (self.rot@self.pos), self.rot.transpose())
 
 class Triplet():
-    def __init__(self, names, pos, rot):
+    def __init__(self, names, pos, rot, residu=0.):
         self.names = names
         self.pos = pos
         self.rot = rot
+        self.residu = residu
 
     def __str__(self):
         r = ""
@@ -190,8 +191,9 @@ def load_triplet_list(path):
 
                     pos.append(xml_load_pos(r.find("Ori3On1")))
                     rot.append(xml_load_rot(r.find("Ori3On1").find("Ori")))
+                    residu = float(r.find("ResiduTriplet").text)
 
-                    triplets_list.append(Triplet(names, pos, rot))
+                    triplets_list.append(Triplet(names, pos, rot, residu))
     return triplets_list
 
 """
@@ -470,6 +472,9 @@ def computeall_tr_u(rot, images1, images2, images, triplets):
 
     for n,i in images2.items():
         images[n].pos = rot @ i.pos
+
+    #triplets.sort(key=lambda x: x.residu, reverse=True)
+    #triplets = triplets[:len(triplets)//2]
 
     #First rotate triplet from block1
     for t in triplets:
